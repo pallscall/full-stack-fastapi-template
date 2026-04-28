@@ -4,7 +4,7 @@ from typing import Any
 from sqlmodel import Session, select
 
 from app.core.security import get_password_hash, verify_password
-from app.models import Item, ItemCreate, User, UserCreate, UserUpdate
+from app.models import Item, ItemCreate, Order, OrderCreate, OrderStatus, OrderUpdate, User, UserCreate, UserUpdate
 
 
 def create_user(*, session: Session, user_create: UserCreate) -> User:
@@ -66,3 +66,48 @@ def create_item(*, session: Session, item_in: ItemCreate, owner_id: uuid.UUID) -
     session.commit()
     session.refresh(db_item)
     return db_item
+
+
+def create_order(*, session: Session, order_in: OrderCreate, user_id: uuid.UUID) -> Order:
+    db_order = Order.model_validate(order_in, update={"user_id": user_id})
+    session.add(db_order)
+    session.commit()
+    session.refresh(db_order)
+    return db_order
+
+
+def update_order(*, session: Session, db_order: Order, order_in: OrderUpdate) -> Any:
+    order_data = order_in.model_dump(exclude_unset=True)
+    db_order.sqlmodel_update(order_data)
+    session.add(db_order)
+    session.commit()
+    session.refresh(db_order)
+    return db_order
+
+
+def get_order_by_id(*, session: Session, order_id: uuid.UUID) -> Order | None:
+    statement = select(Order).where(Order.id == order_id)
+    session_order = session.exec(statement).first()
+    return session_order
+
+
+def get_orders_by_user(
+    *,
+    session: Session,
+    user_id: uuid.UUID,
+    skip: int = 0,
+    limit: int = 100,
+) -> tuple[list[Order], int]:
+    # 默认只过滤 status IN ('DELIVERED') - 这是我们要种下的第一个bug
+    statement = select(Order).where(
+        Order.user_id == user_id,
+        Order.status.in_([OrderStatus.DELIVERED])  # 这里只筛选了DELIVERED
+    ).offset(skip).limit(limit)
+    results = session.exec(statement).all()
+    count_statement = select(Order).where(
+        Order.user_id == user_id,
+        Order.status.in_([OrderStatus.DELIVERED])  # 这里也只筛选了DELIVERED
+    )
+    count_results = session.exec(count_statement)
+    count = len(list(count_results))
+    return results, count

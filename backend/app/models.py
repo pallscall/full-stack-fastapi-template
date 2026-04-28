@@ -1,9 +1,18 @@
 import uuid
 from datetime import datetime, timezone
+from enum import Enum
 
 from pydantic import EmailStr
 from sqlalchemy import DateTime
 from sqlmodel import Field, Relationship, SQLModel
+
+
+class OrderStatus(str, Enum):
+    DELIVERED = "DELIVERED"
+    REVIEWED = "REVIEWED"
+    AUTO_CLOSED = "AUTO_CLOSED"
+    PENDING = "PENDING"
+    CANCELLED = "CANCELLED"
 
 
 def get_datetime_utc() -> datetime:
@@ -54,6 +63,7 @@ class User(UserBase, table=True):
         sa_type=DateTime(timezone=True),  # type: ignore
     )
     items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)
+    orders: list["Order"] = Relationship(back_populates="owner", cascade_delete=True)
 
 
 # Properties to return via API, id is always required
@@ -127,3 +137,43 @@ class TokenPayload(SQLModel):
 class NewPassword(SQLModel):
     token: str
     new_password: str = Field(min_length=8, max_length=128)
+
+
+# Shared properties
+class OrderBase(SQLModel):
+    status: OrderStatus = OrderStatus.PENDING
+
+
+# Properties to receive on order creation
+class OrderCreate(OrderBase):
+    pass
+
+
+# Properties to receive on order update
+class OrderUpdate(OrderBase):
+    status: OrderStatus | None = None
+
+
+# Database model, database table inferred from class name
+class Order(OrderBase, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    user_id: uuid.UUID = Field(
+        foreign_key="user.id", nullable=False, ondelete="CASCADE"
+    )
+    owner: User | None = Relationship(back_populates="orders")
+
+
+# Properties to return via API, id is always required
+class OrderPublic(OrderBase):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    created_at: datetime | None = None
+
+
+class OrdersPublic(SQLModel):
+    data: list[OrderPublic]
+    count: int
