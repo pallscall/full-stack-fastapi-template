@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from enum import Enum
 
-from pydantic import EmailStr
+from pydantic import EmailStr, field_serializer
 from sqlalchemy import DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -71,6 +71,12 @@ class UserPublic(UserBase):
     id: uuid.UUID
     created_at: datetime | None = None
 
+    @field_serializer("created_at")
+    def serialize_created_at(cls, v: datetime | None) -> str | None:
+        if v is None:
+            return None
+        return v.replace(tzinfo=None).isoformat()
+
 
 class UsersPublic(SQLModel):
     data: list[UserPublic]
@@ -111,6 +117,12 @@ class ItemPublic(ItemBase):
     id: uuid.UUID
     owner_id: uuid.UUID
     created_at: datetime | None = None
+
+    @field_serializer("created_at")
+    def serialize_created_at(cls, v: datetime | None) -> str | None:
+        if v is None:
+            return None
+        return v.replace(tzinfo=None).isoformat()
 
 
 class ItemsPublic(SQLModel):
@@ -172,6 +184,12 @@ class OrderPublic(OrderBase):
     id: uuid.UUID
     user_id: uuid.UUID
     created_at: datetime | None = None
+
+    @field_serializer("created_at")
+    def serialize_created_at(cls, v: datetime | None) -> str | None:
+        if v is None:
+            return None
+        return v.replace(tzinfo=None).isoformat()
 
 
 class OrdersPublic(SQLModel):

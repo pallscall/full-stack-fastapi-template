@@ -62,6 +62,19 @@ export const columns: ColumnDef<ItemPublic>[] = [
     },
   },
   {
+    accessorKey: "created_at",
+    header: "创建时间",
+    cell: ({ row }) => {
+      const createdAt = row.original.created_at
+      if (!createdAt) return null
+      return (
+        <span className="text-muted-foreground">
+          {new Date(createdAt).toLocaleString()}
+        </span>
+      )
+    },
+  },
+  {
     id: "actions",
     header: () => <span className="sr-only">Actions</span>,
     cell: ({ row }) => (
